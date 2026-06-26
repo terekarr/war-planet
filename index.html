@@ -803,8 +803,11 @@ function showTerrModal(t){
       <div>⚔ Enemy power: <b style="color:#ee8888">${defPwr||'None'}</b></div>
       <div>🪖${t.troops.infantry} 🛡${t.troops.tank} 🚁${t.troops.heli} ✈${t.troops.jet}</div>
     </div>
-    ${!isP?`<button class="btn btn-r" onclick="closeModal();launchMarch(window._mt)">⚔ Attack! (your power: ${troopPower(G.troops)})</button>`
-          :`<div style="color:var(--gold);font-size:11px">✅ You control this territory.</div>`}`;
+    ${!isP
+      ? `${t.isCapital?`<div style="font-size:10px;color:var(--gold);margin-bottom:8px">⭐ Capturing this capital will take the entire <b>${t.province}</b> Province!</div>`:''}
+         <button class="btn btn-r" onclick="closeModal();launchMarch(window._mt)">⚔ Attack! (your power: ${troopPower(G.troops)})</button>`
+      : `<div style="color:var(--gold);font-size:11px">✅ You control this territory.</div>`
+    }`;
   openModal(`${t.icon} ${t.name}`,html);
 }
 
@@ -821,6 +824,21 @@ function launchMarch(t){
   renderAll();
 }
 
+// Flip every hex in a province to newOwner when a capital is captured
+function captureProvince(capitalTerr, newOwner, survivingTroops){
+  const prov = PROVINCES.find(p => p.name === capitalTerr.province);
+  if(!prov) return;
+  for(const key of prov.hexes){
+    const hex = G.territories.find(h => h.key === key);
+    if(!hex) continue;
+    hex.owner = newOwner;
+    // Surviving army stays in the capital; all other hexes get cleared
+    hex.troops = (hex === capitalTerr && survivingTroops)
+      ? survivingTroops
+      : {infantry:0, tank:0, heli:0, jet:0};
+  }
+}
+
 function resolveBattle(m){
   const t=m.target;
   const atk=troopPower(m.troops);
@@ -834,24 +852,35 @@ function resolveBattle(m){
     const prev=FACTION[t.owner].name;
     t.owner='p'; t.troops=surv;
     for(const k of Object.keys(G.troops)) G.troops[k]=surv[k];
-    addLog(`🏆 CAPTURED ${t.name}! (was ${prev})`,'g');
-    toast(`🏆 Victory! ${t.name} is yours!`,'g');
-    showBattleModal(true,atk,def,t.name);
+
+    if(t.isCapital && t.province){
+      captureProvince(t,'p',surv);
+      addLog(`👑 PROVINCE CAPTURED: ${t.province}! (was ${prev})`,'g');
+      toast(`👑 ${t.province} is yours!`,'g');
+      showBattleModal(true, atk, def, t.name, t.province);
+    } else {
+      addLog(`🏆 CAPTURED ${t.name}! (was ${prev})`,'g');
+      toast(`🏆 ${t.name} is yours!`,'g');
+      showBattleModal(true, atk, def, t.name, null);
+    }
   } else {
     const loss=0.55+Math.random()*0.35;
     G.troops={infantry:Math.max(0,Math.round(m.troops.infantry*(1-loss))),tank:Math.max(0,Math.round(m.troops.tank*(1-loss*0.5))),heli:Math.max(0,Math.round(m.troops.heli*(1-loss*0.7))),jet:Math.max(0,Math.round(m.troops.jet*(1-loss*0.6)))};
     addLog(`💀 Defeated at ${t.name}. Retreating…`,'b');
     toast(`💀 Defeat at ${t.name}.`,'b');
-    showBattleModal(false,atk,def,t.name);
+    showBattleModal(false, atk, def, t.name, null);
   }
   G.marching=null; renderAll();
 }
 
-function showBattleModal(win,atk,def,name){
-  openModal(win?'🏆 Victory!':'💀 Defeat',`
+function showBattleModal(win, atk, def, name, province){
+  const provLine = province ? `<div style="font-size:13px;font-weight:bold;color:var(--gold);margin-bottom:6px">👑 Province Captured: ${province}</div>` : '';
+  const title = province ? '👑 Province Captured!' : win ? '🏆 Victory!' : '💀 Defeat';
+  openModal(title,`
     <div style="text-align:center;padding:14px">
-      <div style="font-size:48px;margin-bottom:8px">${win?'🏆':'💀'}</div>
-      <div style="font-size:18px;font-weight:bold;color:${win?'#88ee88':'#ee8888'};margin-bottom:10px">${win?'TERRITORY CAPTURED!':'FORCES RETREATED'}</div>
+      <div style="font-size:48px;margin-bottom:8px">${province?'👑':win?'🏆':'💀'}</div>
+      <div style="font-size:18px;font-weight:bold;color:${win?'#88ee88':'#ee8888'};margin-bottom:8px">${province?'PROVINCE CAPTURED!':win?'TERRITORY CAPTURED!':'FORCES RETREATED'}</div>
+      ${provLine}
       <div style="font-size:11px;color:var(--dim);margin-bottom:10px">${name}</div>
       <div style="display:flex;justify-content:center;gap:24px;font-size:12px;margin-bottom:14px">
         <div>⚔ Your power: <b style="color:#88bbff">${atk}</b></div>
@@ -874,20 +903,30 @@ function tickAI(faction,dt){
   if(!mine.length)return;
 
   if(Math.random()<0.45){
-    // Attack player territory
+    // Attack player territory — prefer capitals (70% of the time if one is available)
     const pTerrs=playerTerr();
     if(!pTerrs.length)return;
-    const target=pTerrs[Math.floor(Math.random()*pTerrs.length)];
+    const capitals=pTerrs.filter(t=>t.isCapital);
+    const target = capitals.length && Math.random()<0.7
+      ? capitals[Math.floor(Math.random()*capitals.length)]
+      : pTerrs[Math.floor(Math.random()*pTerrs.length)];
     const atk=mine[Math.floor(Math.random()*mine.length)];
     const atkPwr=troopPower(atk.troops)*(0.8+Math.random()*0.4);
     const defPwr=troopPower(G.troops)+defensePower();
-    target.attacking=true; renderMap();
+    target.attacking=true;
     setTimeout(()=>{
       target.attacking=false;
       if(atkPwr>defPwr){
-        target.owner=faction; target.troops={infantry:atk.troops.infantry>>1,tank:atk.troops.tank>>1,heli:0,jet:0};
-        addLog(`💀 ${FACTION[faction].name} captured ${target.name}!`,'b');
-        toast(`⚠ ${FACTION[faction].name} took ${target.name}!`,'b');
+        const atkTroops={infantry:atk.troops.infantry>>1,tank:atk.troops.tank>>1,heli:0,jet:0};
+        target.owner=faction; target.troops=atkTroops;
+        if(target.isCapital && target.province){
+          captureProvince(target, faction, atkTroops);
+          addLog(`💀 ${FACTION[faction].name} seized ${target.province} Province!`,'b');
+          toast(`⚠️ ${FACTION[faction].name} took ${target.province} Province!`,'b');
+        } else {
+          addLog(`💀 ${FACTION[faction].name} captured ${target.name}!`,'b');
+          toast(`⚠ ${FACTION[faction].name} took ${target.name}!`,'b');
+        }
       } else {
         addLog(`🛡 Repelled ${FACTION[faction].name} at ${target.name}`,'g');
         toast(`🛡 ${target.name} defended!`,'g');
@@ -895,11 +934,16 @@ function tickAI(faction,dt){
       renderAll();
     },4000);
   } else {
-    // Expand to neutral
+    // Expand to neutral — prefer neutral capitals
     const neu=G.territories.filter(t=>t.owner==='n');
     if(!neu.length)return;
-    const t=neu[Math.floor(Math.random()*neu.length)];
-    t.owner=faction; t.troops={infantry:3+Math.floor(Math.random()*5),tank:Math.floor(Math.random()*2),heli:0,jet:0};
+    const neuCapitals=neu.filter(t=>t.isCapital);
+    const t = neuCapitals.length && Math.random()<0.6
+      ? neuCapitals[Math.floor(Math.random()*neuCapitals.length)]
+      : neu[Math.floor(Math.random()*neu.length)];
+    const newTroops={infantry:3+Math.floor(Math.random()*5),tank:Math.floor(Math.random()*2),heli:0,jet:0};
+    t.owner=faction; t.troops=newTroops;
+    if(t.isCapital && t.province) captureProvince(t, faction, newTroops);
     renderMap();
   }
 }
