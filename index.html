@@ -11,7 +11,7 @@
   --player:#1a5fa8; --ei1:#7a1a1a; --ei2:#1a3a7a; --ei3:#2a6a1a;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center}
+body{background:#040e1c;color:var(--text);font-family:'Courier New',monospace;width:100vw;height:100vh;overflow:hidden}
 
 /* ── TITLE SCREEN ── */
 #title-screen{position:fixed;inset:0;background:#0a0e14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999}
@@ -26,7 +26,7 @@ body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;
 .t-btn:hover{background:#8a2000}
 
 /* ── MAIN LAYOUT ── */
-#game{width:1120px;border:2px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 0 60px #000;display:none}
+#game{width:100vw;height:100vh;display:none;flex-direction:column;overflow:hidden}
 
 /* ── TOP BAR ── */
 #topbar{background:#0d1117;border-bottom:2px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:20px}
@@ -37,7 +37,7 @@ body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;
 .hq-badge{padding:2px 10px;background:#1c2128;border:1px solid var(--border);border-radius:2px;font-size:11px;color:var(--gold)}
 
 /* ── THREE PANELS ── */
-#main{display:flex;height:628px}
+#main{display:flex;flex:1;overflow:hidden}
 
 /* ── BASE PANEL ── */
 #base-panel{width:280px;border-right:2px solid var(--border);background:var(--panel);display:flex;flex-direction:column;flex-shrink:0}
@@ -422,7 +422,7 @@ let mapCanvas,mapCtx;
 const cam={x:22,y:14,drag:false,lx:0,ly:0,sx:0,sy:0};
 let selTerr=null;
 
-const R=64, CS=R*1.5, RS=R*Math.sqrt(3);
+const R=76, CS=R*1.5, RS=R*Math.sqrt(3);
 
 function hexCenter(col,row){
   return{x:col*CS+R+cam.x, y:row*RS+(col%2===1?RS/2:0)+R+cam.y};
@@ -912,7 +912,7 @@ function tick(){
 
 function startGame(){
   $('title-screen').style.display='none';
-  $('game').style.display='block';
+  $('game').style.display='flex';
   initMapCanvas();
   renderAll();
   addLog('⚡ Welcome to War Planet! Build your base and conquer the world.','g');
