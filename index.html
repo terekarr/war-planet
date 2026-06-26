@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War Planet</title>
+<style>
+:root {
+  --bg:#0d1117; --panel:#161b22; --border:#30363d; --dim:#6e7681;
+  --gold:#d4a017; --text:#c9d1d9; --green:#2d7a2d; --red:#8b1a1a; --blue:#1a4a8b;
+  --player:#1a5fa8; --ei1:#7a1a1a; --ei2:#1a3a7a; --ei3:#2a6a1a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center}
+
+/* ── TITLE SCREEN ── */
+#title-screen{position:fixed;inset:0;background:#0a0e14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999}
+.t-globe{font-size:72px;animation:spin 8s linear infinite}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.t-name{font-size:36px;font-weight:bold;color:var(--gold);letter-spacing:8px;text-shadow:0 0 30px #d4a01766}
+.t-sub{font-size:12px;color:var(--dim);letter-spacing:4px}
+.t-features{display:flex;gap:32px;margin:16px 0}
+.t-feat{text-align:center;font-size:10px;color:var(--dim)}
+.t-feat span{font-size:24px;display:block;margin-bottom:4px}
+.t-btn{padding:12px 48px;background:#5a1000;color:#ffaa88;border:2px solid #cc3300;border-radius:4px;font-family:'Courier New',monospace;font-size:14px;font-weight:bold;cursor:pointer;letter-spacing:3px;text-transform:uppercase;transition:background .15s}
+.t-btn:hover{background:#8a2000}
+
+/* ── MAIN LAYOUT ── */
+#game{width:1120px;border:2px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 0 60px #000;display:none}
+
+/* ── TOP BAR ── */
+#topbar{background:#0d1117;border-bottom:2px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:20px}
+.game-logo{font-size:14px;font-weight:bold;color:var(--gold);letter-spacing:3px;margin-right:auto}
+.res{display:flex;align-items:center;gap:5px;font-size:12px}
+.res-val{color:#fff;font-weight:bold;min-width:48px}
+.res-rate{color:var(--dim);font-size:10px}
+.hq-badge{padding:2px 10px;background:#1c2128;border:1px solid var(--border);border-radius:2px;font-size:11px;color:var(--gold)}
+
+/* ── THREE PANELS ── */
+#main{display:flex;height:628px}
+
+/* ── BASE PANEL ── */
+#base-panel{width:280px;border-right:2px solid var(--border);background:var(--panel);display:flex;flex-direction:column;flex-shrink:0}
+.panel-head{background:#1c2128;padding:7px 12px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;color:var(--dim);border-bottom:1px solid var(--border)}
+#build-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px;flex:1}
+.bslot{border:1.5px solid var(--border);border-radius:4px;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;padding:5px;gap:1px;transition:border-color .15s,background .15s;aspect-ratio:1}
+.bslot:hover{border-color:var(--gold);background:#161b22}
+.bslot.empty{border-style:dashed;border-color:#252525}
+.bslot.empty:hover{border-color:#3a6a3a}
+.bslot.constructing{border-color:#3a6a3a}
+.bslot-icon{font-size:24px;line-height:1}
+.bslot-name{font-size:7.5px;color:var(--dim);text-align:center;text-transform:uppercase;letter-spacing:.4px}
+.bslot-lv{font-size:9px;color:var(--gold)}
+.bslot-timer{position:absolute;top:2px;right:3px;font-size:8px;color:#66cc66}
+.bprog{position:absolute;bottom:0;left:0;right:0;height:3px;background:#1a2a1a;border-radius:0 0 3px 3px;overflow:hidden}
+.bprog-fill{height:100%;background:#44aa44;transition:width .3s}
+#base-log{padding:8px 10px;overflow-y:auto;max-height:130px;border-top:1px solid var(--border)}
+.log-line{font-size:9.5px;color:var(--dim);margin-bottom:3px}
+.log-line.g{color:#66aa66}.log-line.b{color:#aa6666}.log-line.i{color:#6688aa}
+
+/* ── MAP PANEL ── */
+#map-panel{flex:1;background:#080e1a;display:flex;flex-direction:column;overflow:hidden}
+#terr-grid{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(5,1fr);flex:1;gap:3px;padding:8px}
+.terr{border:1.5px solid #1a2a3a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;padding:4px;gap:1px;transition:transform .12s,border-color .15s;overflow:hidden}
+.terr:hover{transform:scale(1.05);z-index:2}
+.terr.sel{border-color:#ffff00!important;box-shadow:0 0 10px #ffff0044;z-index:3}
+.terr.attack{animation:atk 1s infinite}
+@keyframes atk{0%,100%{border-color:#661111}50%{border-color:#ff3333;box-shadow:0 0 12px #ff333366}}
+.terr.p{background:#0a1a30;border-color:#1a4a88}
+.terr.r{background:#160a0a;border-color:#441111}
+.terr.b2{background:#0a0a22;border-color:#112255}
+.terr.g{background:#0a160a;border-color:#114411}
+.terr.n{background:#111;border-color:#1c1c1c}
+.t-icon{font-size:18px}
+.t-name{font-size:7.5px;color:var(--dim);text-align:center;text-transform:uppercase;letter-spacing:.3px}
+.t-own{position:absolute;top:2px;left:3px;font-size:7px;font-weight:bold;text-transform:uppercase}
+.t-income{font-size:7.5px;color:var(--gold)}
+.t-def{position:absolute;bottom:2px;right:3px;font-size:8px;color:#886644}
+.t-march{position:absolute;top:2px;right:3px;font-size:11px;animation:bob .5s infinite alternate}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
+
+/* ── ARMY PANEL ── */
+#army-panel{width:270px;border-left:2px solid var(--border);background:var(--panel);display:flex;flex-direction:column;flex-shrink:0}
+.asec{border-bottom:1px solid var(--border);padding:9px 10px}
+.sec-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:7px}
+.trow{display:flex;align-items:center;gap:7px;padding:5px 7px;background:#0d1117;border:1px solid var(--border);border-radius:3px;margin-bottom:5px}
+.trow-icon{font-size:17px}
+.trow-name{font-size:11px;flex:1}
+.trow-cnt{font-size:13px;font-weight:bold;color:#fff;min-width:26px;text-align:right}
+.train-btn{background:#223322;color:#88cc88;border:1px solid #334433;font-size:10px;padding:3px 7px;cursor:pointer;border-radius:2px;font-family:'Courier New',monospace}
+.train-btn:hover:not(:disabled){background:#334433}
+.train-btn:disabled{background:#111;color:#444;border-color:#222;cursor:default}
+.qslot{display:flex;align-items:center;gap:6px;padding:4px 7px;background:#0d1117;border:1px solid #1a3a1a;border-radius:3px;margin-bottom:4px}
+.qprog{flex:1;height:4px;background:#111;border-radius:2px;overflow:hidden}
+.qprog-fill{height:100%;background:#44aa44}
+.qtime{font-size:9px;color:#55aa55;min-width:26px;text-align:right}
+.march-btn{width:100%;background:#3a1010;color:#ee8888;border:1.5px solid #6a2020;padding:8px;font-family:'Courier New',monospace;font-size:12px;cursor:pointer;border-radius:3px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;transition:background .15s}
+.march-btn:hover:not(:disabled){background:#5a1818}
+.march-btn:disabled{background:#111;color:#333;border-color:#1a1a1a;cursor:default}
+.march-btn.mode{background:#102038;color:#88bbff;border-color:#2a5a8a}
+.march-st{font-size:10px;color:#6699cc;text-align:center;margin-top:5px;min-height:14px}
+
+/* ── MODAL ── */
+#overlay{display:none;position:fixed;inset:0;background:#00000099;z-index:200;align-items:center;justify-content:center}
+#overlay.open{display:flex}
+#modal{background:#161b22;border:2px solid var(--border);border-radius:6px;min-width:340px;max-width:480px;box-shadow:0 8px 40px #000}
+.mhdr{background:#1c2128;padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.mtitle{font-size:13px;font-weight:bold;flex:1}
+.mclose{background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;line-height:1}
+.mclose:hover{color:#fff}
+.mbody{padding:14px}
+.bopt{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:4px;margin-bottom:7px;cursor:pointer;background:#0d1117;transition:border-color .15s,background .15s}
+.bopt:hover:not(.locked){border-color:var(--gold);background:#161b22}
+.bopt.locked{opacity:.35;cursor:not-allowed}
+.bopt-icon{font-size:22px}
+.bopt-info{flex:1}
+.bopt-name{font-size:11px;font-weight:bold}
+.bopt-desc{font-size:10px;color:var(--dim)}
+.bopt-cost{font-size:10px;color:var(--gold)}
+.btn{padding:7px 16px;border-radius:3px;font-family:'Courier New',monospace;font-size:12px;cursor:pointer;font-weight:bold;letter-spacing:.5px}
+.btn-g{background:#1a4a1a;color:#88ee88;border:1.5px solid #2a7a2a}
+.btn-g:hover:not(:disabled){background:#2a6a2a}
+.btn-g:disabled{background:#111;color:#333;border-color:#1a1a1a;cursor:default}
+.btn-r{background:#4a1010;color:#ee8888;border:1.5px solid #7a2020}
+.btn-r:hover{background:#6a1818}
+.btn-c{background:#1c2128;color:var(--dim);border:1.5px solid var(--border)}
+.btn-c:hover{color:#fff}
+.stat-row{display:flex;gap:16px;margin:8px 0;font-size:11px}
+.stat-lbl{color:var(--dim)}.stat-val{color:#fff;font-weight:bold}.stat-next{color:var(--gold)}
+
+/* ── TOAST ── */
+#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:300}
+.toast{padding:8px 14px;border-radius:3px;font-size:12px;background:#161b22;border:1px solid var(--border);animation:tin .2s ease;max-width:270px}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.toast.g{border-color:#2a5a2a;color:#88ee88}
+.toast.b{border-color:#5a1a1a;color:#ee8888}
+.toast.i{border-color:#1a3a5a;color:#88bbee}
+</style>
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen">
+  <div class="t-globe">🌍</div>
+  <div class="t-name">WAR PLANET</div>
+  <div class="t-sub">CONQUER THE WORLD</div>
+  <div class="t-features">
+    <div class="t-feat"><span>🏛</span>Build your base</div>
+    <div class="t-feat"><span>🗺</span>Control the map</div>
+    <div class="t-feat"><span>⚔</span>Train armies</div>
+    <div class="t-feat"><span>👑</span>Rule the planet</div>
+  </div>
+  <button class="t-btn" onclick="startGame()">▶ DEPLOY FORCES</button>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="game-logo">🌍 WAR PLANET</div>
+    <div class="res"><span>💰</span><span class="res-val" id="r-gold">500</span><span class="res-rate" id="rr-gold">+0/s</span></div>
+    <div class="res"><span>🛢</span><span class="res-val" id="r-oil">200</span><span class="res-rate" id="rr-oil">+0/s</span></div>
+    <div class="res"><span>🌽</span><span class="res-val" id="r-food">300</span><span class="res-rate" id="rr-food">+0/s</span></div>
+    <div class="res"><span>🗺</span><span class="res-val" id="r-terr" style="color:var(--gold)">3</span><span class="res-rate">/30</span></div>
+    <div class="hq-badge">HQ <span id="r-hq">Lv 1</span></div>
+    <div class="hq-badge" style="color:#88bbff">Defense: <span id="r-def">0</span></div>
+  </div>
+
+  <div id="main">
+    <!-- LEFT: BASE -->
+    <div id="base-panel">
+      <div class="panel-head">🏛 Your Base</div>
+      <div id="build-grid"></div>
+      <div id="base-log"></div>
+    </div>
+
+    <!-- CENTER: MAP -->
+    <div id="map-panel">
+      <div class="panel-head" style="display:flex;justify-content:space-between">
+        <span>🗺 World Map</span>
+        <span id="map-hint" style="color:var(--gold);font-size:10px"></span>
+      </div>
+      <div id="terr-grid"></div>
+    </div>
+
+    <!-- RIGHT: ARMY -->
+    <div id="army-panel">
+      <div class="panel-head">⚔ Army Command</div>
+
+      <div class="asec">
+        <div class="sec-lbl">Ready Troops</div>
+        <div class="trow">
+          <span class="trow-icon">🪖</span><span class="trow-name">Infantry</span>
+          <span class="trow-cnt" id="t-infantry">0</span>
+          <button class="train-btn" id="btn-infantry" onclick="trainTroop('infantry')">Train</button>
+        </div>
+        <div class="trow">
+          <span class="trow-icon">🛡</span><span class="trow-name">Tank</span>
+          <span class="trow-cnt" id="t-tank">0</span>
+          <button class="train-btn" id="btn-tank" onclick="trainTroop('tank')" disabled>Train</button>
+        </div>
+        <div class="trow">
+          <span class="trow-icon">🚁</span><span class="trow-name">Helicopter</span>
+          <span class="trow-cnt" id="t-heli">0</span>
+          <button class="train-btn" id="btn-heli" onclick="trainTroop('heli')" disabled>Train</button>
+        </div>
+        <div class="trow">
+          <span class="trow-icon">✈</span><span class="trow-name">Jet</span>
+          <span class="trow-cnt" id="t-jet">0</span>
+          <button class="train-btn" id="btn-jet" onclick="trainTroop('jet')" disabled>Train</button>
+        </div>
+      </div>
+
+      <div class="asec">
+        <div class="sec-lbl">Training Queue</div>
+        <div id="train-queue"><div style="font-size:10px;color:var(--dim);text-align:center;padding:6px">Empty</div></div>
+      </div>
+
+      <div class="asec">
+        <button class="march-btn" id="march-btn" onclick="toggleMarch()">⚔ March to Attack</button>
+        <div class="march-st" id="march-st"></div>
+      </div>
+
+      <div class="asec" style="flex:1;overflow-y:auto;border-bottom:none">
+        <div class="sec-lbl">Battle Log</div>
+        <div id="battle-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="overlay">
+  <div id="modal">
+    <div class="mhdr">
+      <span class="mtitle" id="m-title"></span>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mbody" id="m-body"></div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DEFINITIONS
+// ═══════════════════════════════════════════════
+
+const BD = {  // building definitions
+  hq:       { name:'HQ',            icon:'🏛', max:3, cost:[null,{gold:800,oil:400},{gold:2200,oil:1100}], time:[null,35,100], income:[null,null,null], desc:'Command center. Upgrade to unlock more.', defense:[0,0,0] },
+  goldmine: { name:'Gold Mine',     icon:'⛏', max:3, cost:[{gold:200},{gold:500,oil:80},{gold:1100,oil:280}], time:[12,40,100], income:[{gold:8},{gold:15},{gold:24}], desc:'Produces gold passively.' },
+  oilwell:  { name:'Oil Well',      icon:'🛢', max:3, cost:[{gold:250},{gold:600,oil:100},{gold:1300,oil:300}], time:[15,45,110], income:[{oil:6},{oil:11},{oil:18}], desc:'Produces oil for vehicles.' },
+  farm:     { name:'Farm',          icon:'🌽', max:3, cost:[{gold:150},{gold:380,oil:50},{gold:850,oil:160}], time:[10,32,85], income:[{food:5},{food:9},{food:15}], desc:'Feeds your soldiers.' },
+  barracks: { name:'Barracks',      icon:'⚔', max:3, cost:[{gold:300},{gold:700,oil:150},{gold:1600,oil:400}], time:[18,50,120], income:[], desc:'Trains Infantry soldiers.', trains:'infantry', unlockHQ:1 },
+  factory:  { name:'Tank Factory',  icon:'🏭', max:3, cost:[{gold:500,oil:200},{gold:1300,oil:500},{gold:2800,oil:1100}], time:[30,75,170], income:[], desc:'Builds heavy Tanks.', trains:'tank', unlockHQ:2 },
+  airfield: { name:'Airfield',      icon:'✈', max:3, cost:[{gold:450,oil:180},{gold:1100,oil:420},{gold:2400,oil:900}], time:[28,68,155], income:[], desc:'Deploys Helicopters & Jets.', trains:'heli,jet', unlockHQ:2 },
+  lab:      { name:'Research Lab',  icon:'🔬', max:3, cost:[{gold:600,oil:300},{gold:1600,oil:750},{gold:3200,oil:1600}], time:[45,110,240], income:[], desc:'Boosts troop stats +20% per level.', unlockHQ:2 },
+  tower:    { name:'Defense Tower', icon:'🗼', max:3, cost:[{gold:350,oil:100},{gold:850,oil:260},{gold:1800,oil:620}], time:[18,48,115], income:[], desc:'Defends your base.', defense:[30,55,85], unlockHQ:1 },
+};
+
+const TD = {  // troop definitions
+  infantry: { name:'Infantry', icon:'🪖', cost:{gold:50,food:30},      time:8,  atk:10,  hp:40,  count:5,  req:'barracks' },
+  tank:     { name:'Tank',     icon:'🛡',  cost:{gold:120,oil:80},      time:20, atk:38,  hp:160, count:1,  req:'factory'  },
+  heli:     { name:'Heli',     icon:'🚁',  cost:{gold:90,oil:60,food:20},time:14, atk:28,  hp:80,  count:2,  req:'airfield' },
+  jet:      { name:'Jet',      icon:'✈',  cost:{gold:150,oil:100},     time:22, atk:55,  hp:60,  count:1,  req:'airfield' },
+};
+
+const FACTION = {
+  p:  { name:'YOU',          color:'#4488cc', short:'YOU'       },
+  r:  { name:'IRON LEGION',  color:'#cc3333', short:'IRON'      },
+  b2: { name:'COLD FRONT',   color:'#3355cc', short:'COLD'      },
+  g:  { name:'VIPER CORPS',  color:'#44aa44', short:'VIPER'     },
+  n:  { name:'Neutral',      color:'#555',    short:'NEUTRAL'   },
+};
+
+const TERRITORY_NAMES = [
+  'Iron Ridge','Wolf Pass','Dustfall','Ember Point','Storm Cape','Redrock',
+  'Cold Harbor','Ashfield','Thornwall','Snake Basin','Mesa Flats','Iron Bay',
+  'Deadwater','Salt Plains','Granite Peak','Crystal Bay','Sand Bluff','Pine Ridge',
+  'Eagle Rock','Cinder Valley','Lost Fort','River Delta','Dark Mesa','Coal Ridge',
+  'Stone Gate','Fort Echo','Copper Sands','Broken Ridge','Ash Hollow','Storm Point',
+];
+
+// ═══════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════
+
+const G = {
+  res: { gold:500, oil:200, food:300 },
+  slots: Array(9).fill(null).map((_,i) =>
+    i===4 ? { type:'hq', level:1, busy:false, timer:0, total:0 } : null
+  ),
+  troops: { infantry:0, tank:0, heli:0, jet:0 },
+  queue: [],                  // [{type,timer,total,count}]
+  maxQueue: 5,
+  marching: null,             // {troops,target,timer,total}
+  marchMode: false,
+  territories: [],
+  labLevel: 0,
+  log: [],
+  aiClock: { r:55, b2:80, g:65 },
+  over: false,
+};
+
+// Build territory grid (6 cols × 5 rows = 30)
+(function() {
+  const own = {
+    '0,2':'p','0,3':'p','1,3':'p',        // player: 3
+    '5,0':'r','4,0':'r','5,1':'r','4,1':'r', // iron: 4
+    '5,3':'b2','5,4':'b2','4,4':'b2','5,2':'b2', // cold: 4
+    '2,4':'g','3,4':'g','1,4':'g',         // viper: 3
+  };
+  const icons = ['🌾','🌲','⛰','🏜','🏖','🌾','🌲','🌾'];
+  G.territories = Array.from({length:30},(_,i)=>{
+    const col=i%6, row=Math.floor(i/6), key=`${col},${row}`;
+    const o = own[key]||'n';
+    return {
+      col,row,key,idx:i,
+      owner:o,
+      icon:icons[(col*3+row*7)%icons.length],
+      name:TERRITORY_NAMES[i],
+      goldInc:2+((col+row)%3),
+      oilInc:1+((col*2+row)%3),
+      troops: o==='p'?{infantry:0,tank:0,heli:0,jet:0}
+             :o==='n'?{infantry:2+((col+row)%3),tank:0,heli:0,jet:0}
+             :{infantry:5+col+row,tank:1+(col>3?1:0),heli:0,jet:0},
+      attacking:false, marching:false,
+    };
+  });
+})();
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+
+const $ = id => document.getElementById(id);
+
+function canAfford(cost){
+  for(const[r,v]of Object.entries(cost)) if((G.res[r]||0)<v) return false;
+  return true;
+}
+function spend(cost){ for(const[r,v]of Object.entries(cost)) G.res[r]-=v; }
+
+function hqLevel(){ return G.slots[4]?.level||1; }
+function hasBldg(type){ const s=G.slots.find(s=>s?.type===type&&!s.busy&&s.level>0); return s?s.level:0; }
+
+function defensePower(){
+  return G.slots.reduce((sum,s)=>{
+    if(!s||s.type!=='tower'||s.busy||s.level===0)return sum;
+    return sum+BD.tower.defense[s.level-1];
+  },0);
+}
+function researchBoost(){ return 1+G.labLevel*0.2; }
+
+function troopPower(t){
+  const b=researchBoost();
+  return Math.round((t.infantry*10+t.tank*38+t.heli*28+t.jet*55)*b);
+}
+function totalTroops(){ return Object.values(G.troops).reduce((a,b)=>a+b,0); }
+
+function playerTerr(){ return G.territories.filter(t=>t.owner==='p'); }
+
+function addLog(text,cls='i'){
+  G.log.unshift({text,cls});
+  if(G.log.length>25) G.log.pop();
+}
+function toast(text,cls='i'){
+  const el=document.createElement('div');
+  el.className=`toast ${cls}`; el.textContent=text;
+  $('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+function fmtCost(cost){ return Object.entries(cost).map(([r,v])=>`${v} ${r}`).join(' · '); }
+
+// ═══════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════
+
+function renderAll(){ renderRes(); renderBase(); renderMap(); renderArmy(); }
+
+function renderRes(){
+  let gr=0,or=0,fr=0;
+  for(const s of G.slots){
+    if(!s||s.busy||s.level===0)continue;
+    const inc=BD[s.type]?.income;
+    if(inc&&inc[s.level-1]){const i=inc[s.level-1];gr+=i.gold||0;or+=i.oil||0;fr+=i.food||0;}
+  }
+  for(const t of playerTerr()){ gr+=t.goldInc; or+=t.oilInc; }
+  $('r-gold').textContent=Math.floor(G.res.gold);
+  $('r-oil').textContent=Math.floor(G.res.oil);
+  $('r-food').textContent=Math.floor(G.res.food);
+  $('rr-gold').textContent=`+${gr}/s`;
+  $('rr-oil').textContent=`+${or}/s`;
+  $('rr-food').textContent=`+${fr}/s`;
+  $('r-terr').textContent=playerTerr().length;
+  $('r-hq').textContent=`Lv ${hqLevel()}`;
+  $('r-def').textContent=defensePower();
+}
+
+function renderBase(){
+  const grid=$('build-grid');
+  grid.innerHTML='';
+  for(let i=0;i<9;i++){
+    const s=G.slots[i];
+    const el=document.createElement('div');
+    el.className='bslot'+(s?s.busy?' constructing':'':' empty');
+    el.onclick=()=>clickSlot(i);
+    if(s){
+      const pct=s.busy?Math.round((1-s.timer/s.total)*100):100;
+      const lvDisp=s.busy&&s.level===0?'⚒':s.busy?`Lv${s.level}⚒`:`Lv${s.level}`;
+      el.innerHTML=`
+        <span class="bslot-icon">${BD[s.type].icon}</span>
+        <span class="bslot-name">${BD[s.type].name}</span>
+        <span class="bslot-lv">${lvDisp}</span>
+        ${s.busy?`<span class="bslot-timer">${Math.ceil(s.timer)}s</span>`:''}
+        <div class="bprog"><div class="bprog-fill" style="width:${s.busy?pct:0}%"></div></div>`;
+    } else {
+      el.innerHTML=`<span style="font-size:22px;color:#252525">+</span><span class="bslot-name">Build</span>`;
+    }
+    grid.appendChild(el);
+  }
+  // log
+  $('base-log').innerHTML=G.log.slice(0,15).map(l=>`<div class="log-line ${l.cls}">${l.text}</div>`).join('');
+}
+
+function renderMap(){
+  const grid=$('terr-grid');
+  grid.innerHTML='';
+  for(const t of G.territories){
+    const el=document.createElement('div');
+    const cls={p:'p',r:'r',b2:'b2',g:'g',n:'n'}[t.owner];
+    el.className=`terr ${cls}${t.attacking?' attack':''}`;
+    el.onclick=()=>clickTerr(t);
+    const own=t.owner!=='n'?`<span class="t-own" style="color:${FACTION[t.owner].color}">${FACTION[t.owner].short}</span>`:'';
+    const def=troopPower(t.troops)>0?`<span class="t-def">⚔${troopPower(t.troops)}</span>`:'';
+    const march=t.marching?`<span class="t-march">✈</span>`:'';
+    el.innerHTML=`${own}${march}<span class="t-icon">${t.icon}</span><span class="t-name">${t.name}</span><span class="t-income">💰${t.goldInc} 🛢${t.oilInc}</span>${def}`;
+    grid.appendChild(el);
+  }
+}
+
+function renderArmy(){
+  for(const type of ['infantry','tank','heli','jet'])
+    $(`t-${type}`).textContent=G.troops[type];
+
+  const hasB=hasBldg('barracks')>0, hasF=hasBldg('factory')>0, hasA=hasBldg('airfield')>0;
+  $('btn-infantry').disabled=!hasB||G.queue.length>=G.maxQueue;
+  $('btn-tank').disabled=!hasF||G.queue.length>=G.maxQueue;
+  $('btn-heli').disabled=!hasA||G.queue.length>=G.maxQueue;
+  $('btn-jet').disabled=!hasA||G.queue.length>=G.maxQueue;
+
+  // Queue
+  const qEl=$('train-queue');
+  if(!G.queue.length){
+    qEl.innerHTML='<div style="font-size:10px;color:var(--dim);text-align:center;padding:6px">Empty</div>';
+  } else {
+    qEl.innerHTML=G.queue.map(q=>{
+      const pct=Math.round((1-q.timer/q.total)*100);
+      return `<div class="qslot"><span>${TD[q.type].icon}</span><span style="font-size:10px;flex:0 0 62px">${TD[q.type].name}</span><div class="qprog"><div class="qprog-fill" style="width:${pct}%"></div></div><span class="qtime">${Math.ceil(q.timer)}s</span></div>`;
+    }).join('');
+  }
+
+  // March button
+  const btn=$('march-btn'), st=$('march-st');
+  if(G.marching){
+    btn.textContent='⌛ Marching...'; btn.disabled=true; btn.className='march-btn';
+    const pct=Math.round((1-G.marching.timer/G.marching.total)*100);
+    st.textContent=`${pct}% — ${Math.ceil(G.marching.timer)}s`;
+  } else if(G.marchMode){
+    btn.textContent='❌ Cancel'; btn.disabled=false; btn.className='march-btn mode';
+    st.textContent='Select a territory on the map';
+  } else {
+    const can=totalTroops()>0;
+    btn.textContent='⚔ March to Attack'; btn.disabled=!can; btn.className='march-btn';
+    st.textContent=can?'':'Train troops first';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════
+
+function openModal(title,html){ $('m-title').textContent=title; $('m-body').innerHTML=html; $('overlay').classList.add('open'); }
+function closeModal(){ $('overlay').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════
+// BUILDING ACTIONS
+// ═══════════════════════════════════════════════
+
+function clickSlot(i){
+  const s=G.slots[i];
+  if(s?.busy){ toast('Still under construction…','i'); return; }
+  s ? showUpgradeModal(i) : showBuildModal(i);
+}
+
+function showBuildModal(idx){
+  const hqLv=hqLevel();
+  const taken=new Set(G.slots.filter(s=>s&&s.type!=='tower').map(s=>s.type));
+  const available=Object.entries(BD).filter(([t,d])=>{
+    if(t==='hq') return false;
+    if(taken.has(t)&&t!=='tower') return false;
+    const req=d.unlockHQ||1;
+    return hqLv>=req;
+  });
+
+  if(!available.length){
+    openModal('🏗 Build','<p style="color:var(--dim);font-size:12px;padding:8px">Upgrade your HQ to unlock more buildings.</p>');
+    return;
+  }
+  const html=available.map(([type,d])=>{
+    const cost=d.cost[0];
+    const ok=canAfford(cost);
+    return `<div class="bopt${ok?'':' locked'}" ${ok?`onclick="doBuild('${type}',${idx})"`:''}><span class="bopt-icon">${d.icon}</span><div class="bopt-info"><div class="bopt-name">${d.name}</div><div class="bopt-desc">${d.desc}</div><div class="bopt-cost">Cost: ${fmtCost(cost)} · ${d.time[0]}s</div></div></div>`;
+  }).join('');
+  openModal('🏗 Choose Building',html);
+}
+
+function showUpgradeModal(idx){
+  const s=G.slots[idx];
+  const d=BD[s.type];
+  const isMax=s.level>=d.max;
+  const nxtCost=!isMax?d.cost[s.level]:null;
+  const inc=d.income&&d.income[s.level-1];
+  const incNext=!isMax&&d.income&&d.income[s.level];
+
+  let html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <span style="font-size:28px">${d.icon}</span>
+    <div><div style="font-size:14px;font-weight:bold">${d.name}</div><div style="font-size:10px;color:var(--dim)">${d.desc}</div></div>
+  </div>
+  <div style="color:var(--gold);font-size:11px;margin-bottom:8px">Level ${s.level} / ${d.max}</div>`;
+
+  if(inc){ const cur=Object.entries(inc).map(([r,v])=>`+${v} ${r}/s`).join(', '); const nxt=incNext?Object.entries(incNext).map(([r,v])=>`+${v} ${r}/s`).join(', '):''; html+=`<div class="stat-row"><span class="stat-lbl">Income: </span><span class="stat-val">${cur}</span>${nxt?`<span class="stat-next"> → ${nxt}</span>`:''}</div>`; }
+  if(d.defense&&d.defense[s.level-1]){ html+=`<div class="stat-row"><span class="stat-lbl">Defense: </span><span class="stat-val">+${d.defense[s.level-1]}</span>${!isMax?`<span class="stat-next"> → +${d.defense[s.level]}</span>`:''}</div>`; }
+
+  if(isMax){
+    html+=`<div style="color:var(--gold);font-size:11px;margin:8px 0">✅ Max level</div>`;
+  } else {
+    const ok=canAfford(nxtCost);
+    html+=`<div style="font-size:10px;color:var(--dim);margin:8px 0">Upgrade: ${fmtCost(nxtCost)} · ${d.time[s.level]}s</div>
+    <button class="btn btn-g" ${ok?`onclick="doUpgrade(${idx})"`:'disabled'}>⬆ Upgrade to Lv ${s.level+1}</button> `;
+  }
+  if(idx!==4) html+=`<button class="btn btn-r" style="margin-top:6px" onclick="demolish(${idx})">🗑 Demolish</button>`;
+  openModal(`${d.icon} ${d.name}`,html);
+}
+
+function doBuild(type,idx){
+  const d=BD[type]; const cost=d.cost[0];
+  if(!canAfford(cost)){toast('Not enough resources!','b');return;}
+  spend(cost);
+  G.slots[idx]={type,level:0,busy:true,timer:d.time[0],total:d.time[0]};
+  closeModal(); addLog(`🏗 Building ${d.name}… (${d.time[0]}s)`,'i'); renderAll();
+}
+
+function doUpgrade(idx){
+  const s=G.slots[idx]; const d=BD[s.type];
+  const cost=d.cost[s.level]; const time=d.time[s.level];
+  if(!canAfford(cost)){toast('Not enough resources!','b');return;}
+  spend(cost);
+  s.busy=true; s.timer=time; s.total=time;
+  closeModal(); addLog(`⬆ Upgrading ${d.name} to Lv${s.level+1}… (${time}s)`,'i'); renderAll();
+}
+
+function demolish(idx){ G.slots[idx]=null; closeModal(); addLog('🗑 Building demolished','i'); renderAll(); }
+
+// ═══════════════════════════════════════════════
+// TROOP TRAINING
+// ═══════════════════════════════════════════════
+
+function trainTroop(type){
+  if(G.queue.length>=G.maxQueue){toast('Queue full!','b');return;}
+  const d=TD[type];
+  if(!canAfford(d.cost)){toast('Not enough resources!','b');return;}
+  spend(d.cost);
+  G.queue.push({type,timer:d.time,total:d.time,count:d.count});
+  addLog(`⚒ Training ${d.count}× ${d.name}… (${d.time}s)`,'i'); renderAll();
+}
+
+// ═══════════════════════════════════════════════
+// MARCH & BATTLE
+// ═══════════════════════════════════════════════
+
+function toggleMarch(){
+  if(G.marching){return;}
+  if(G.marchMode){G.marchMode=false;$('map-hint').textContent='';}
+  else{
+    if(!totalTroops()){toast('Train troops first!','b');return;}
+    G.marchMode=true; $('map-hint').textContent='Select a territory to attack!';
+    toast('Select a territory on the map!','i');
+  }
+  renderArmy();
+}
+
+function clickTerr(t){
+  if(G.marchMode&&!G.marching){
+    if(t.owner==='p'){toast("That's your territory!",'b');return;}
+    launchMarch(t); return;
+  }
+  showTerrModal(t);
+}
+
+window._mt=null; // modal territory ref
+function showTerrModal(t){
+  window._mt=t;
+  const isP=t.owner==='p';
+  const defPwr=troopPower(t.troops);
+  const html=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <span style="font-size:32px">${t.icon}</span>
+      <div><div style="font-size:14px;font-weight:bold">${t.name}</div><div style="font-size:11px;color:${FACTION[t.owner].color}">${FACTION[t.owner].name}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:11px">
+      <div>💰 Gold: <b>+${t.goldInc}/s</b></div>
+      <div>🛢 Oil: <b>+${t.oilInc}/s</b></div>
+      <div>⚔ Enemy power: <b style="color:#ee8888">${defPwr||'None'}</b></div>
+      <div>🪖${t.troops.infantry} 🛡${t.troops.tank} 🚁${t.troops.heli} ✈${t.troops.jet}</div>
+    </div>
+    ${!isP?`<button class="btn btn-r" onclick="closeModal();launchMarch(window._mt)">⚔ Attack! (your power: ${troopPower(G.troops)})</button>`
+          :`<div style="color:var(--gold);font-size:11px">✅ You control this territory.</div>`}`;
+  openModal(`${t.icon} ${t.name}`,html);
+}
+
+function launchMarch(t){
+  if(!totalTroops()){toast('No troops!','b');G.marchMode=false;renderArmy();return;}
+  const tTime=10+Math.floor(Math.random()*8);
+  t.marching=true;
+  G.marching={troops:{...G.troops},target:t,timer:tTime,total:tTime};
+  G.troops={infantry:0,tank:0,heli:0,jet:0};
+  G.marchMode=false;
+  $('map-hint').textContent='';
+  addLog(`✈ Marching to ${t.name}… (${tTime}s)`,'i');
+  toast(`Army en route to ${t.name}!`,'i');
+  renderAll();
+}
+
+function resolveBattle(m){
+  const t=m.target;
+  const atk=troopPower(m.troops);
+  const def=troopPower(t.troops)+(t.owner==='n'?0:15);
+  const win=atk*(0.8+Math.random()*0.4)>def;
+  t.marching=false;
+
+  if(win){
+    const loss=Math.max(0.05,def/atk*0.45);
+    const surv={infantry:Math.max(0,Math.round(m.troops.infantry*(1-loss))),tank:Math.max(0,Math.round(m.troops.tank*(1-loss*0.5))),heli:Math.max(0,Math.round(m.troops.heli*(1-loss*0.7))),jet:Math.max(0,Math.round(m.troops.jet*(1-loss*0.6)))};
+    const prev=FACTION[t.owner].name;
+    t.owner='p'; t.troops=surv;
+    for(const k of Object.keys(G.troops)) G.troops[k]=surv[k];
+    addLog(`🏆 CAPTURED ${t.name}! (was ${prev})`,'g');
+    toast(`🏆 Victory! ${t.name} is yours!`,'g');
+    showBattleModal(true,atk,def,t.name);
+  } else {
+    const loss=0.55+Math.random()*0.35;
+    G.troops={infantry:Math.max(0,Math.round(m.troops.infantry*(1-loss))),tank:Math.max(0,Math.round(m.troops.tank*(1-loss*0.5))),heli:Math.max(0,Math.round(m.troops.heli*(1-loss*0.7))),jet:Math.max(0,Math.round(m.troops.jet*(1-loss*0.6)))};
+    addLog(`💀 Defeated at ${t.name}. Retreating…`,'b');
+    toast(`💀 Defeat at ${t.name}.`,'b');
+    showBattleModal(false,atk,def,t.name);
+  }
+  G.marching=null; renderAll();
+}
+
+function showBattleModal(win,atk,def,name){
+  openModal(win?'🏆 Victory!':'💀 Defeat',`
+    <div style="text-align:center;padding:14px">
+      <div style="font-size:48px;margin-bottom:8px">${win?'🏆':'💀'}</div>
+      <div style="font-size:18px;font-weight:bold;color:${win?'#88ee88':'#ee8888'};margin-bottom:10px">${win?'TERRITORY CAPTURED!':'FORCES RETREATED'}</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">${name}</div>
+      <div style="display:flex;justify-content:center;gap:24px;font-size:12px;margin-bottom:14px">
+        <div>⚔ Your power: <b style="color:#88bbff">${atk}</b></div>
+        <div>🛡 Enemy power: <b style="color:#ee8888">${def}</b></div>
+      </div>
+      <button class="btn btn-g" onclick="closeModal()">${win?'Onward to victory!':'Regroup and retry'}</button>
+    </div>`);
+}
+
+// ═══════════════════════════════════════════════
+// ENEMY AI
+// ═══════════════════════════════════════════════
+
+function tickAI(faction,dt){
+  G.aiClock[faction]-=dt;
+  if(G.aiClock[faction]>0)return;
+  G.aiClock[faction]=45+Math.random()*60;
+
+  const mine=G.territories.filter(t=>t.owner===faction);
+  if(!mine.length)return;
+
+  if(Math.random()<0.45){
+    // Attack player territory
+    const pTerrs=playerTerr();
+    if(!pTerrs.length)return;
+    const target=pTerrs[Math.floor(Math.random()*pTerrs.length)];
+    const atk=mine[Math.floor(Math.random()*mine.length)];
+    const atkPwr=troopPower(atk.troops)*(0.8+Math.random()*0.4);
+    const defPwr=troopPower(G.troops)+defensePower();
+    target.attacking=true; renderMap();
+    setTimeout(()=>{
+      target.attacking=false;
+      if(atkPwr>defPwr){
+        target.owner=faction; target.troops={infantry:atk.troops.infantry>>1,tank:atk.troops.tank>>1,heli:0,jet:0};
+        addLog(`💀 ${FACTION[faction].name} captured ${target.name}!`,'b');
+        toast(`⚠ ${FACTION[faction].name} took ${target.name}!`,'b');
+      } else {
+        addLog(`🛡 Repelled ${FACTION[faction].name} at ${target.name}`,'g');
+        toast(`🛡 ${target.name} defended!`,'g');
+      }
+      renderAll();
+    },4000);
+  } else {
+    // Expand to neutral
+    const neu=G.territories.filter(t=>t.owner==='n');
+    if(!neu.length)return;
+    const t=neu[Math.floor(Math.random()*neu.length)];
+    t.owner=faction; t.troops={infantry:3+Math.floor(Math.random()*5),tank:Math.floor(Math.random()*2),heli:0,jet:0};
+    renderMap();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════
+
+let last=Date.now(), interval;
+
+function tick(){
+  if(G.over)return;
+  const now=Date.now(), dt=Math.min((now-last)/1000,0.1);
+  last=now;
+
+  // Resource income
+  let gr=0,or=0,fr=0;
+  for(const s of G.slots){
+    if(!s||s.busy||s.level===0)continue;
+    const inc=BD[s.type]?.income;
+    if(inc&&inc[s.level-1]){const i=inc[s.level-1];gr+=i.gold||0;or+=i.oil||0;fr+=i.food||0;}
+  }
+  for(const t of playerTerr()){gr+=t.goldInc;or+=t.oilInc;}
+  G.res.gold+=gr*dt; G.res.oil+=or*dt; G.res.food+=fr*dt;
+
+  // Building timers
+  let bChanged=false;
+  for(const s of G.slots){
+    if(!s?.busy)continue;
+    s.timer-=dt;
+    if(s.timer<=0){
+      s.timer=0; s.busy=false; s.level++;
+      if(s.type==='lab')G.labLevel=s.level;
+      addLog(`✅ ${BD[s.type].name} Lv${s.level} complete!`,'g');
+      toast(`✅ ${BD[s.type].name} complete!`,'g');
+      bChanged=true;
+    }
+  }
+
+  // Training queue
+  let tChanged=false;
+  if(G.queue.length){
+    const q=G.queue[0];
+    q.timer-=dt;
+    if(q.timer<=0){
+      G.troops[q.type]+=q.count;
+      addLog(`✅ ${q.count}× ${TD[q.type].name} ready!`,'g');
+      toast(`✅ ${TD[q.type].name} trained!`,'g');
+      G.queue.shift(); tChanged=true;
+    }
+  }
+
+  // Marching army
+  if(G.marching){
+    G.marching.timer-=dt;
+    if(G.marching.timer<=0) resolveBattle(G.marching);
+  }
+
+  // AI
+  for(const f of ['r','b2','g']) tickAI(f,dt);
+
+  // Win / lose check
+  const pCount=playerTerr().length;
+  if(pCount>=30&&!G.over){
+    G.over=true; clearInterval(interval);
+    openModal('🌍 World Domination!',`<div style="text-align:center;padding:16px"><div style="font-size:52px">🏆</div><div style="font-size:20px;font-weight:bold;color:var(--gold);margin:10px 0">YOU RULE THE PLANET!</div><div style="font-size:11px;color:var(--dim)">All 30 territories conquered.</div><button class="btn btn-g" style="margin-top:14px" onclick="location.reload()">Play Again</button></div>`);
+  }
+  if(pCount===0&&!G.over){
+    G.over=true; clearInterval(interval);
+    openModal('💀 Empire Lost',`<div style="text-align:center;padding:16px"><div style="font-size:52px">💀</div><div style="font-size:20px;font-weight:bold;color:#ee8888;margin:10px 0">YOUR EMPIRE HAS FALLEN</div><button class="btn btn-r" style="margin-top:14px" onclick="location.reload()">Try Again</button></div>`);
+  }
+
+  renderRes();
+  if(bChanged)renderBase();
+  if(tChanged||G.marching)renderArmy();
+}
+
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+
+function startGame(){
+  $('title-screen').style.display='none';
+  $('game').style.display='block';
+  renderAll();
+  addLog('⚡ Welcome to War Planet! Build your base and conquer the world.','g');
+  addLog('💡 Tip: Build a Gold Mine first to grow your income.','i');
+  interval=setInterval(tick,80);
+}
+</script>
+</body>
+</html>
