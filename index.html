@@ -150,7 +150,7 @@ body{background:#040e1c;color:var(--text);font-family:'Courier New',monospace;wi
     <div class="res"><span>💰</span><span class="res-val" id="r-gold">500</span><span class="res-rate" id="rr-gold">+0/s</span></div>
     <div class="res"><span>🛢</span><span class="res-val" id="r-oil">200</span><span class="res-rate" id="rr-oil">+0/s</span></div>
     <div class="res"><span>🌽</span><span class="res-val" id="r-food">300</span><span class="res-rate" id="rr-food">+0/s</span></div>
-    <div class="res"><span>🗺</span><span class="res-val" id="r-terr" style="color:var(--gold)">3</span><span class="res-rate">/30</span></div>
+    <div class="res"><span>🗺</span><span class="res-val" id="r-terr" style="color:var(--gold)">3</span><span class="res-rate">/60</span></div>
     <div class="hq-badge">HQ <span id="r-hq">Lv 1</span></div>
     <div class="hq-badge" style="color:#88bbff">Defense: <span id="r-def">0</span></div>
     <button onclick="openBase()" style="padding:3px 12px;background:#1a3a1a;color:#88dd88;border:1px solid #2a6a2a;border-radius:3px;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;letter-spacing:1px">🏛 BASE</button>
@@ -268,11 +268,18 @@ const FACTION = {
 };
 
 const TERRITORY_NAMES = [
-  'Iron Ridge','Wolf Pass','Dustfall','Ember Point','Storm Cape','Redrock',
-  'Cold Harbor','Ashfield','Thornwall','Snake Basin','Mesa Flats','Iron Bay',
-  'Deadwater','Salt Plains','Granite Peak','Crystal Bay','Sand Bluff','Pine Ridge',
-  'Eagle Rock','Cinder Valley','Lost Fort','River Delta','Dark Mesa','Coal Ridge',
-  'Stone Gate','Fort Echo','Copper Sands','Broken Ridge','Ash Hollow','Storm Point',
+  // row 0
+  'Iron Ridge','Wolf Pass','Dustfall','Ember Point','Storm Cape','Redrock','Cold Harbor','Ashfield','Thornwall','Snake Basin',
+  // row 1
+  'Mesa Flats','Iron Bay','Deadwater','Salt Plains','Granite Peak','Crystal Bay','Sand Bluff','Pine Ridge','Eagle Rock','Cinder Valley',
+  // row 2
+  'Lost Fort','River Delta','Dark Mesa','Coal Ridge','Stone Gate','Fort Echo','Copper Sands','Broken Ridge','Ash Hollow','Storm Point',
+  // row 3
+  'Black Shore','Amber Dunes','Jade Falls','Frozen Peak','Crimson Bay','Thunder Pass','Silver Mine','Obsidian Rock','Dragon Reach','Viper Den',
+  // row 4
+  "Crow's Nest",'Blood Marsh','Sunken Keep','Ghost Plains','Dire Crossing','Iron Gate','Rust Valley','Desolation',"War's End",'Last Stand',
+  // row 5
+  'Siege Point','Battle Crest','Valor Ridge','Honor Keep','Glory Pass','Victory Bay','Conquest Shore','Dominion Peak',"Empire's End","World's Edge",
 ];
 
 // ═══════════════════════════════════════════════
@@ -296,17 +303,17 @@ const G = {
   over: false,
 };
 
-// Build territory grid (6 cols × 5 rows = 30)
+// Build territory grid (10 cols × 6 rows = 60)
 (function() {
   const own = {
-    '0,2':'p','0,3':'p','1,3':'p',        // player: 3
-    '5,0':'r','4,0':'r','5,1':'r','4,1':'r', // iron: 4
-    '5,3':'b2','5,4':'b2','4,4':'b2','5,2':'b2', // cold: 4
-    '2,4':'g','3,4':'g','1,4':'g',         // viper: 3
+    '0,2':'p','0,3':'p','0,4':'p',           // player: West Reach hexes
+    '4,0':'r','4,1':'r','5,0':'r',            // iron legion: Darkwood edge
+    '8,0':'b2','8,1':'b2','9,0':'b2',         // cold front: East Empire edge
+    '9,3':'g','9,4':'g','8,3':'g',            // viper corps: Storm Coast edge
   };
-  const icons = ['🌾','🌲','⛰','🏜','🏖','🌾','🌲','🌾'];
-  G.territories = Array.from({length:30},(_,i)=>{
-    const col=i%6, row=Math.floor(i/6), key=`${col},${row}`;
+  const icons = ['🌾','🌲','⛰','🏜','🏖','🌾','🌲','🌾','🌿','🗻'];
+  G.territories = Array.from({length:60},(_,i)=>{
+    const col=i%10, row=Math.floor(i/10), key=`${col},${row}`;
     const o = own[key]||'n';
     const prov=KEY_TO_PROV[key]||null;
     return {
@@ -426,17 +433,35 @@ function renderBase(){
 const HOME_BASE_KEY='0,2';
 
 const PROVINCES=[
-  { name:'WEST REACH',   capital:'0,2', hexes:['0,0','0,1','0,2','0,3','0,4','1,0','1,1'], color:'#4488cc' },
-  { name:'IRON VALE',    capital:'2,2', hexes:['1,2','2,1','2,2','3,1','3,2'],              color:'#cc8833' },
-  { name:'NORTH COAST',  capital:'4,0', hexes:['2,0','3,0','4,0','5,0','4,1','5,1'],        color:'#cc3344' },
-  { name:'EAST EMPIRE',  capital:'5,2', hexes:['4,2','5,2','4,3','5,3','5,4'],              color:'#6644cc' },
-  { name:'SOUTH LANDS',  capital:'2,4', hexes:['1,3','2,3','3,3','1,4','2,4','3,4','4,4'], color:'#44aa55' },
+  { name:'WEST REACH',      capital:'0,2', hexes:['0,0','0,1','0,2','0,3','0,4','0,5'],          color:'#4488cc' },
+  { name:'IRON COAST',      capital:'1,1', hexes:['1,0','1,1','1,2','1,3','1,4','1,5'],          color:'#cc8833' },
+  { name:'NORTHERN FRONT',  capital:'3,0', hexes:['2,0','2,1','2,2','3,0','3,1','3,2'],          color:'#cc4466' },
+  { name:'CENTRAL PLAINS',  capital:'3,4', hexes:['2,3','2,4','2,5','3,3','3,4','3,5'],          color:'#44aa66' },
+  { name:'DARKWOOD',        capital:'4,1', hexes:['4,0','4,1','4,2','5,0','5,1','5,2'],          color:'#228844' },
+  { name:'AMBER DESERT',    capital:'5,4', hexes:['4,3','4,4','4,5','5,3','5,4','5,5'],          color:'#cc7722' },
+  { name:'COLD PEAKS',      capital:'7,0', hexes:['6,0','6,1','6,2','7,0','7,1','7,2'],          color:'#44aacc' },
+  { name:'JADE VALLEY',     capital:'6,4', hexes:['6,3','6,4','6,5','7,3','7,4','7,5'],          color:'#44cc88' },
+  { name:'EAST EMPIRE',     capital:'8,1', hexes:['8,0','8,1','8,2','9,0','9,1','9,2'],          color:'#8833cc' },
+  { name:'STORM COAST',     capital:'9,4', hexes:['8,3','8,4','8,5','9,3','9,4','9,5'],          color:'#cc3366' },
 ];
 // map key → province for fast lookup
 const KEY_TO_PROV={};
 for(const p of PROVINCES) for(const k of p.hexes) KEY_TO_PROV[k]=p;
 
-const TERRAIN=['o','o','f','d','m','o','o','g','f','g','d','o','g','g','p','p','g','o','o','p','m','g','f','f','o','o','g','p','f','o'];
+const TERRAIN=[
+  // row 0 (col 0-9)
+  'o','g','f','f','f','m','m','m','d','o',
+  // row 1
+  'g','g','f','p','f','m','m','p','d','o',
+  // row 2
+  'g','p','p','p','f','d','p','g','d','o',
+  // row 3
+  'g','g','p','f','d','d','p','g','m','o',
+  // row 4
+  'g','p','p','p','d','d','g','p','m','o',
+  // row 5
+  'o','g','p','p','d','d','g','p','d','o',
+];
 const TC={o:'#071628',g:'#1e4a10',f:'#0f2806',d:'#5a4015',m:'#3a3845',p:'#264215'};
 const OWN_FILL  ={p:'#4488cc28',r:'#cc333328',b2:'#3355cc28',g:'#44aa4428',n:'#22222214'};
 const OWN_STROKE={p:'#5599dd', r:'#dd4444', b2:'#4466dd', g:'#55bb55', n:'#2e2e2e'};
@@ -1007,9 +1032,9 @@ function tick(){
 
   // Win / lose check
   const pCount=playerTerr().length;
-  if(pCount>=30&&!G.over){
+  if(pCount>=60&&!G.over){
     G.over=true; clearInterval(interval);
-    openModal('🌍 World Domination!',`<div style="text-align:center;padding:16px"><div style="font-size:52px">🏆</div><div style="font-size:20px;font-weight:bold;color:var(--gold);margin:10px 0">YOU RULE THE PLANET!</div><div style="font-size:11px;color:var(--dim)">All 30 territories conquered.</div><button class="btn btn-g" style="margin-top:14px" onclick="location.reload()">Play Again</button></div>`);
+    openModal('🌍 World Domination!',`<div style="text-align:center;padding:16px"><div style="font-size:52px">🏆</div><div style="font-size:20px;font-weight:bold;color:var(--gold);margin:10px 0">YOU RULE THE PLANET!</div><div style="font-size:11px;color:var(--dim)">All 10 provinces conquered.</div><button class="btn btn-g" style="margin-top:14px" onclick="location.reload()">Play Again</button></div>`);
   }
   if(pCount===0&&!G.over){
     G.over=true; clearInterval(interval);
