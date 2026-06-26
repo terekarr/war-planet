@@ -59,25 +59,9 @@ body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;
 .log-line.g{color:#66aa66}.log-line.b{color:#aa6666}.log-line.i{color:#6688aa}
 
 /* ── MAP PANEL ── */
-#map-panel{flex:1;background:#080e1a;display:flex;flex-direction:column;overflow:hidden}
-#terr-grid{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(5,1fr);flex:1;gap:3px;padding:8px}
-.terr{border:1.5px solid #1a2a3a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;padding:4px;gap:1px;transition:transform .12s,border-color .15s;overflow:hidden}
-.terr:hover{transform:scale(1.05);z-index:2}
-.terr.sel{border-color:#ffff00!important;box-shadow:0 0 10px #ffff0044;z-index:3}
-.terr.attack{animation:atk 1s infinite}
-@keyframes atk{0%,100%{border-color:#661111}50%{border-color:#ff3333;box-shadow:0 0 12px #ff333366}}
-.terr.p{background:#0a1a30;border-color:#1a4a88}
-.terr.r{background:#160a0a;border-color:#441111}
-.terr.b2{background:#0a0a22;border-color:#112255}
-.terr.g{background:#0a160a;border-color:#114411}
-.terr.n{background:#111;border-color:#1c1c1c}
-.t-icon{font-size:18px}
-.t-name{font-size:7.5px;color:var(--dim);text-align:center;text-transform:uppercase;letter-spacing:.3px}
-.t-own{position:absolute;top:2px;left:3px;font-size:7px;font-weight:bold;text-transform:uppercase}
-.t-income{font-size:7.5px;color:var(--gold)}
-.t-def{position:absolute;bottom:2px;right:3px;font-size:8px;color:#886644}
-.t-march{position:absolute;top:2px;right:3px;font-size:11px;animation:bob .5s infinite alternate}
-@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
+#map-panel{flex:1;background:#040e1c;display:flex;flex-direction:column;overflow:hidden}
+#map-canvas{flex:1;width:100%;display:block;cursor:grab}
+#map-canvas:active{cursor:grabbing}
 
 /* ── ARMY PANEL ── */
 #army-panel{width:270px;border-left:2px solid var(--border);background:var(--panel);display:flex;flex-direction:column;flex-shrink:0}
@@ -180,7 +164,7 @@ body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;
         <span>🗺 World Map</span>
         <span id="map-hint" style="color:var(--gold);font-size:10px"></span>
       </div>
-      <div id="terr-grid"></div>
+      <canvas id="map-canvas"></canvas>
     </div>
 
     <!-- RIGHT: ARMY -->
@@ -425,20 +409,152 @@ function renderBase(){
   $('base-log').innerHTML=G.log.slice(0,15).map(l=>`<div class="log-line ${l.cls}">${l.text}</div>`).join('');
 }
 
-function renderMap(){
-  const grid=$('terr-grid');
-  grid.innerHTML='';
-  for(const t of G.territories){
-    const el=document.createElement('div');
-    const cls={p:'p',r:'r',b2:'b2',g:'g',n:'n'}[t.owner];
-    el.className=`terr ${cls}${t.attacking?' attack':''}`;
-    el.onclick=()=>clickTerr(t);
-    const own=t.owner!=='n'?`<span class="t-own" style="color:${FACTION[t.owner].color}">${FACTION[t.owner].short}</span>`:'';
-    const def=troopPower(t.troops)>0?`<span class="t-def">⚔${troopPower(t.troops)}</span>`:'';
-    const march=t.marching?`<span class="t-march">✈</span>`:'';
-    el.innerHTML=`${own}${march}<span class="t-icon">${t.icon}</span><span class="t-name">${t.name}</span><span class="t-income">💰${t.goldInc} 🛢${t.oilInc}</span>${def}`;
-    grid.appendChild(el);
+// ═══════════════════════════════════════════════
+// HEX MAP CANVAS
+// ═══════════════════════════════════════════════
+
+const TERRAIN=['o','o','f','d','m','o','o','g','f','g','d','o','g','g','p','p','g','o','o','p','m','g','f','f','o','o','g','p','f','o'];
+const TC={o:'#071628',g:'#1e4a10',f:'#0f2806',d:'#5a4015',m:'#3a3845',p:'#264215'};
+const OWN_FILL  ={p:'#4488cc28',r:'#cc333328',b2:'#3355cc28',g:'#44aa4428',n:'#22222214'};
+const OWN_STROKE={p:'#5599dd', r:'#dd4444', b2:'#4466dd', g:'#55bb55', n:'#2e2e2e'};
+
+let mapCanvas,mapCtx;
+const cam={x:22,y:14,drag:false,lx:0,ly:0,sx:0,sy:0};
+let selTerr=null;
+
+const R=64, CS=R*1.5, RS=R*Math.sqrt(3);
+
+function hexCenter(col,row){
+  return{x:col*CS+R+cam.x, y:row*RS+(col%2===1?RS/2:0)+R+cam.y};
+}
+function hexPath(ctx,cx,cy,r){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){const a=Math.PI*i/3; i===0?ctx.moveTo(cx+r*Math.cos(a),cy+r*Math.sin(a)):ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));}
+  ctx.closePath();
+}
+function nearestTerr(px,py){
+  let best=null,bestD=Infinity;
+  for(const t of G.territories){const c=hexCenter(t.col,t.row),d=Math.hypot(px-c.x,py-c.y);if(d<bestD){bestD=d;best=t;}}
+  return bestD<R?best:null;
+}
+
+function drawMapCanvas(){
+  if(!mapCtx)return;
+  const W=mapCanvas.width,H=mapCanvas.height,ctx=mapCtx;
+  const now=Date.now();
+
+  // Ocean background
+  ctx.fillStyle='#040e1c'; ctx.fillRect(0,0,W,H);
+
+  // Subtle animated ocean waves
+  ctx.strokeStyle='#0a1e3430'; ctx.lineWidth=1;
+  for(let y=0;y<H;y+=20){
+    ctx.beginPath();
+    for(let x=0;x<W;x+=3){
+      const w=Math.sin((x*0.06+now/5000))*4;
+      x===0?ctx.moveTo(x,y+w):ctx.lineTo(x,y+w);
+    }
+    ctx.stroke();
   }
+
+  // Terrain blobs behind each land hex (gives satellite feel)
+  for(const t of G.territories){
+    const ter=TERRAIN[t.idx]; if(ter==='o')continue;
+    const{x,y}=hexCenter(t.col,t.row);
+    ctx.save(); ctx.shadowBlur=30; ctx.shadowColor=TC[ter];
+    ctx.fillStyle=TC[ter]+'cc'; hexPath(ctx,x,y,R+10); ctx.fill();
+    ctx.restore();
+  }
+
+  // Hex tiles
+  for(const t of G.territories){
+    const{x,y}=hexCenter(t.col,t.row);
+    const isSel=t===selTerr, isAtk=t.attacking;
+    const pulse=isAtk?0.5+0.5*Math.sin(now/180):0;
+
+    // Owner fill
+    hexPath(ctx,x,y,R-1);
+    ctx.fillStyle=OWN_FILL[t.owner]; ctx.fill();
+
+    // Border
+    ctx.strokeStyle=isAtk?`rgba(255,${80+Math.round(pulse*120)},50,${0.7+pulse*0.3})`
+                   :isSel?'#ffff00':OWN_STROKE[t.owner];
+    ctx.lineWidth=isSel?3:isAtk?2.5:1.5; ctx.stroke();
+
+    // Selected outer glow
+    if(isSel){hexPath(ctx,x,y,R+5);ctx.strokeStyle='#ffff0033';ctx.lineWidth=7;ctx.stroke();}
+
+    // Marching ✈ animation
+    if(t.marching){const bob=Math.sin(now/280)*3;ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('✈',x+R*.55,y-R*.55+bob);}
+
+    // Territory icon
+    ctx.font='20px sans-serif'; ctx.textAlign='center'; ctx.fillText(t.icon,x,y+5);
+
+    // Name
+    ctx.fillStyle=t.owner==='n'?'#3a3a3a':'#7a7a7a';
+    ctx.font='bold 7px Courier New'; ctx.fillText(t.name.slice(0,12).toUpperCase(),x,y+R-13);
+
+    // Owner badge
+    if(t.owner!=='n'){
+      ctx.fillStyle=OWN_STROKE[t.owner]; ctx.font='bold 8px Courier New';
+      ctx.fillText(FACTION[t.owner].short,x,y-R+18);
+    }
+
+    // Troop power
+    const pwr=troopPower(t.troops);
+    if(pwr>0){ctx.fillStyle='#997733';ctx.font='8px Courier New';ctx.fillText('⚔'+pwr,x,y+18);}
+
+    // Income
+    ctx.fillStyle='#664d11'; ctx.font='7px Courier New';
+    ctx.fillText('💰'+t.goldInc+' 🛢'+t.oilInc,x,y-8);
+  }
+
+  // March mode: highlight attackable tiles
+  if(G.marchMode){
+    for(const t of G.territories){
+      if(t.owner==='p')continue;
+      const{x,y}=hexCenter(t.col,t.row);
+      hexPath(ctx,x,y,R-1);
+      ctx.fillStyle='#ffffff07'; ctx.fill();
+      ctx.strokeStyle='#ffff0033'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  // HUD hint
+  if(G.marchMode){
+    ctx.fillStyle='#ffdd0099'; ctx.font='bold 12px Courier New'; ctx.textAlign='center';
+    ctx.fillText('⚔  SELECT A TERRITORY TO ATTACK',W/2,18);
+  }
+}
+
+function renderMap(){
+  // canvas redraws via rAF — nothing needed here
+}
+
+function initMapCanvas(){
+  mapCanvas=$('map-canvas'); mapCtx=mapCanvas.getContext('2d');
+  function resize(){const p=$('map-panel');mapCanvas.width=p.clientWidth;mapCanvas.height=p.clientHeight-32;}
+  resize(); window.addEventListener('resize',resize);
+
+  mapCanvas.addEventListener('mousedown',e=>{
+    cam.drag=true; cam.lx=e.offsetX; cam.ly=e.offsetY; cam.sx=e.offsetX; cam.sy=e.offsetY;
+  });
+  mapCanvas.addEventListener('mousemove',e=>{
+    if(!cam.drag)return;
+    cam.x+=e.offsetX-cam.lx; cam.y+=e.offsetY-cam.ly;
+    cam.lx=e.offsetX; cam.ly=e.offsetY;
+    // Clamp so map can't scroll too far
+    cam.x=Math.max(-(5*CS+R*2-mapCanvas.width+R),Math.min(R*2,cam.x));
+    cam.y=Math.max(-(4*RS+RS/2+R-mapCanvas.height+R),Math.min(R*2,cam.y));
+  });
+  mapCanvas.addEventListener('mouseup',e=>{
+    cam.drag=false;
+    const moved=Math.hypot(e.offsetX-cam.sx,e.offsetY-cam.sy);
+    if(moved<6){const t=nearestTerr(e.offsetX,e.offsetY);selTerr=t||null;if(t)clickTerr(t);}
+  });
+  mapCanvas.addEventListener('mouseleave',()=>{cam.drag=false;});
+
+  (function frame(){drawMapCanvas();requestAnimationFrame(frame);})();
 }
 
 function renderArmy(){
@@ -627,7 +743,7 @@ function launchMarch(t){
   t.marching=true;
   G.marching={troops:{...G.troops},target:t,timer:tTime,total:tTime};
   G.troops={infantry:0,tank:0,heli:0,jet:0};
-  G.marchMode=false;
+  G.marchMode=false; selTerr=null;
   $('map-hint').textContent='';
   addLog(`✈ Marching to ${t.name}… (${tTime}s)`,'i');
   toast(`Army en route to ${t.name}!`,'i');
@@ -797,6 +913,7 @@ function tick(){
 function startGame(){
   $('title-screen').style.display='none';
   $('game').style.display='block';
+  initMapCanvas();
   renderAll();
   addLog('⚡ Welcome to War Planet! Build your base and conquer the world.','g');
   addLog('💡 Tip: Build a Gold Mine first to grow your income.','i');
